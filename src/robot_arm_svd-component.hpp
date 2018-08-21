@@ -1,6 +1,6 @@
 #ifndef OROCOS_ROBOTARMSVD_COMPONENT_HPP
 #define OROCOS_ROBOTARMSVD_COMPONENT_HPP
-
+// TODO check if every header is needed
 #include <rtt/RTT.hpp>
 #include <eigen3/Eigen/SVD>
 #include <eigen3/Eigen/Core>
@@ -17,6 +17,7 @@
 #include <kdl/chainjnttojacsolver.hpp>
 #include <rst-rt/robot/JointState.hpp>
 
+// TODO remove DEBUG functions
 class RobotArmSVD : public RTT::TaskContext
 {
 public:

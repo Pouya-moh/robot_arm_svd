@@ -1,10 +1,28 @@
 import("robot_arm_svd")
 loadComponent("test","RobotArmSVD")
 setActivity("test",1,10,ORO_SCHED_OTHER)
+
+## important properties! modify for used configuration!
 test.path_to_urdf = "/home/david/repos/cogimon-gazebo-models/iit-cogimon/model.urdf"
 test.base_left_arm = "Waist"
 test.ee_left_arm = "LWrMot3"
 test.base_right_arm = "Waist"
 test.ee_right_arm = "LWrMot3"
+
+## ports
+var ConnPolicy cp;
+
+cp.type = BUFFER;  // Use ''BUFFER'' or ''DATA''
+cp.size = 10;      // size of the buffer
+cp.lock_policy = LOCKED; // Use  ''LOCKED'', ''LOCK_FREE'' or ''UNSYNC''
+
+## ADD THEM
+#connect(SOME_OUTPUT_PORT, "test.left_arm_state_in",cp)
+#connect(SOME_OUTPUT_PORT, "test.right_arm_state_in",cp)
+
+## optional
+#test.use_torso = true
+#connect(SOME_OUTPUT_PORT, "test.torso_state_in",cp)
+
 test.configure
 test.start
