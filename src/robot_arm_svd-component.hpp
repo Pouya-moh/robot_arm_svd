@@ -2,12 +2,19 @@
 #define OROCOS_ROBOTARMSVD_COMPONENT_HPP
 
 #include <rtt/RTT.hpp>
-//#include <Eigen/SVD>
-//#include <Eigen/Core>
-//#include <Eigen/Dense>
+#include <eigen3/Eigen/SVD>
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Dense>
 #include <limits>
 #include <string>
 #include <rtt/Port.hpp>
+#include <urdf/model.h>
+#include <kdl_parser/kdl_parser.hpp>
+#include <kdl/chain.hpp>
+#include <kdl/tree.hpp>
+#include <kdl/frames.hpp>
+#include <kdl/chainfksolverpos_recursive.hpp>
+#include <kdl/chainjnttojacsolver.hpp>
 
 class RobotArmSVD : public RTT::TaskContext
 {
@@ -27,18 +34,32 @@ private:
                 ee_right_arm;
 
     // some ports to get current joint states
-    // TODO port data types
-    //RTT::InputPort<> torso_state;
-    //RTT::InputPort<> left_arm_state;
-    //RTT::InputPort<> right_arm_state;
+    // TODO 3 or 1 input port?
+    //RTT::InputPort<rstrt::robot::JointState> torso_state;
+    //RTT::InputPort<rstrt::robot::JointState> left_arm_state;
+    //RTT::InputPort<rstrt::robot::JointState> right_arm_state;
+    // OR
+    //RTT::InputPort<rstrt::robot::JointState> joint_state;
 
+    bool loadModel(); // loads urdf specified by 'path_to_urdf'
     // 'global' vars
-    // TODO add kinematic chains for arms
-    // TODO add SVD left
-    // TODO add SVD right
-
-    bool setupKinematicChains(); // loads urdf specified by 'path_to_urdf'
-
+    bool model_loaded;
+    urdf::Model model;
+    KDL::Tree model_tree;
+    KDL::Chain chain_left_arm,
+               chain_right_arm;
+    KDL::JntArray q_left,
+                  q_right;
+    KDL::Jacobian j_left,
+                  j_right;
+    std::unique_ptr<KDL::ChainJntToJacSolver> jnt_to_jac_solver_left,
+                                              jnt_to_jac_solver_right;
+    Eigen::MatrixXd u_left,
+                    u_right,
+                    v_left,
+                    v_right,
+                    sv_left,
+                    sv_right;
 
     // some debug functions. just some printing/setting to evade a proper debugger
     void DEBUGprintSVD();

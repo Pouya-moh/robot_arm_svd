@@ -5,50 +5,68 @@
 
 RobotArmSVD::RobotArmSVD(std::string const& name) : TaskContext(name)
 {
+    this->model_loaded = false;
+
     // setup some the properties
-    path_to_urdf = "NO PATH!";
+    this->path_to_urdf = "NO PATH!";
     this->addProperty("path_to_urdf", path_to_urdf).doc("Path to the robots URDF.");
-    base_left_arm = "NO VALUE!";
+
+    this->base_left_arm = "NO VALUE!";
     this->addProperty("base_left_arm", base_left_arm).doc("Base link of left arm.");
-    ee_left_arm = "NO VALUE!";
+
+    this->ee_left_arm = "NO VALUE!";
     this->addProperty("ee_left_arm", ee_left_arm).doc("End effector of left arm.");
-    base_right_arm = "NO VALUE!";
+
+    this->base_right_arm = "NO VALUE!";
     this->addProperty("base_right_arm", base_right_arm).doc("Base link of right arm.");
-    ee_right_arm = "NO VALUE!";
+
+    this->ee_right_arm = "NO VALUE!";
     this->addProperty("ee_right_arm", ee_right_arm).doc("End effector of right arm.");
 
-    std::cout << "RobotArmSVD constructed !" <<std::endl;
+    RTT::log(RTT::Info) << "(RobotArmSVD) Constructed!" << RTT::endlog();
 }
 
 bool RobotArmSVD::configureHook()
 {
-    if (!setupKinematicChains())
-    {
-        return false;
-    }
-
     DEBUGprintProperties();
     // quick check if some value is set to the properties
-    if (path_to_urdf.compare("NO PATH!") == 0 ||
-        base_left_arm.compare("NO VALUE!") == 0 ||
-        ee_left_arm.compare("NO VALUE!") == 0 ||
-        base_right_arm.compare("NO VALUE!") == 0 ||
-        ee_right_arm.compare("NO VALUE!") == 0)
+    if (this->path_to_urdf.compare("NO PATH!") == 0 ||
+        this->base_left_arm.compare("NO VALUE!") == 0 ||
+        this->ee_left_arm.compare("NO VALUE!") == 0 ||
+        this->base_right_arm.compare("NO VALUE!") == 0 ||
+        this->ee_right_arm.compare("NO VALUE!") == 0)
     {
         RTT::log(RTT::Error) << "(RobotArmSVD) Some property isn't set!" << RTT::endlog();
         return false;
     }
+
+    if (!this->loadModel())
+    {
+        return false;
+    }
+
+    RTT::log(RTT::Info) << "(RobotArmSVD) Configured!" << RTT::endlog();
     return true;
 }
 
 bool RobotArmSVD::startHook()
 {
-    std::cout << "RobotArmSVD started !" <<std::endl;
+    RTT::log(RTT::Info) << "(RobotArmSVD) Started!" << RTT::endlog();
     return true;
 }
 
 void RobotArmSVD::updateHook()
 {
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd_left(this->j_left.data.block(0, 0, 3, this->chain_left_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
+    this->u_left  = svd_left.matrixU().cast<double>();
+    this->v_left  = svd_left.matrixV().cast<double>();
+    this->sv_left = svd_left.singularValues().cast<double>();
+
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd_right(this->j_left.data.block(0, 0, 3, this->chain_right_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
+    this->u_right  = svd_right.matrixU().cast<double>();
+    this->v_right  = svd_right.matrixV().cast<double>();
+    this->sv_right = svd_right.singularValues().cast<double>();
+
     DEBUGprintSVD();
     //std::cout << "RobotArmSVD executes updateHook !" <<std::endl;
     //RTT::log(RTT::Error) << "RobotArmSVD executes updateHook !" << RTT::endlog();
@@ -64,16 +82,51 @@ void RobotArmSVD::cleanupHook()
     std::cout << "RobotArmSVD cleaning up !" <<std::endl;
 }
 
-// TODO implement
-bool RobotArmSVD::setupKinematicChains()
+// based on https://github.com/dasblondegrauen/lwr-sim/blob/master/lwr_testdriver/src/lwr_testdriver-component.cpp
+bool RobotArmSVD::loadModel()
 {
-    return true;
+    model_loaded = false;
+
+    if(!model.initFile(this->path_to_urdf)) {
+        RTT::log(RTT::Error) << "(RobotArmSVD) Could not load model from URDF at " << this->path_to_urdf << RTT::endlog();
+        return false;
+    }
+
+    if(!kdl_parser::treeFromUrdfModel(model, model_tree)) {
+        RTT::log(RTT::Error) << "(RobotArmSVD) Could not get tree from model" << RTT::endlog();
+        return false;
+    }
+
+    if(!model_tree.getChain(this->base_left_arm, this->ee_left_arm, this->chain_left_arm))
+    {
+        RTT::log(RTT::Error) << "(RobotArmSVD) Could not get left chain from tree" << RTT::endlog();
+        return false;
+    }
+
+    if(!model_tree.getChain(this->base_right_arm, this->ee_right_arm, this->chain_right_arm))
+    {
+        RTT::log(RTT::Error) << "(RobotArmSVD) Could not get right chain from tree" << RTT::endlog();
+        return false;
+    }
+
+    this->q_left  = KDL::JntArray(this->chain_left_arm.getNrOfJoints());
+    this->q_right = KDL::JntArray(this->chain_right_arm.getNrOfJoints());
+    this->j_left  = KDL::Jacobian(this->chain_left_arm.getNrOfJoints());
+    this->j_right = KDL::Jacobian(this->chain_right_arm.getNrOfJoints());
+
+    // TODO do i need this?
+    //fk_solver_pos = std::unique_ptr<KDL::ChainFkSolverPos_recursive>(new KDL::ChainFkSolverPos_recursive(lwr));
+
+    this->jnt_to_jac_solver_left  = std::unique_ptr<KDL::ChainJntToJacSolver>(new KDL::ChainJntToJacSolver(this->chain_left_arm));
+    this->jnt_to_jac_solver_right = std::unique_ptr<KDL::ChainJntToJacSolver>(new KDL::ChainJntToJacSolver(this->chain_right_arm));
+
+    model_loaded = true;
+return true;
 }
 
-// TODO implement
 void RobotArmSVD::DEBUGprintSVD()
 {
-    std::cout << "Printing SVDs" <<std::endl;
+    std::cout << "Printing SVDs" << std::endl;
     DEBUGprintSVDLeft();
     DEBUGprintSVDRight();
 }
@@ -81,18 +134,21 @@ void RobotArmSVD::DEBUGprintSVD()
 // TODO implement
 void RobotArmSVD::DEBUGprintSVDLeft()
 {
-    std::cout << "  Left SVD:" <<std::endl;
-    std::cout << "NOT IMPLEMENTED!!!" <<std::endl;
+    std::cout << "  Left SVD:" << std::endl;
+    std::cout << "   u: " << '\n' << this->u_left << '\n';
+    std::cout << "   v: " << '\n' << this->v_left << '\n';
+    std::cout << "   singularValues: " << '\n' << this->sv_left << '\n';
 }
 
 // TODO implement
 void RobotArmSVD::DEBUGprintSVDRight()
 {
     std::cout << "  Right SVD:" <<std::endl;
-    std::cout << "NOT IMPLEMENTED!!!" <<std::endl;
+    std::cout << "   u: " << '\n' << this->u_right << '\n';
+    std::cout << "   v: " << '\n' << this->v_right << '\n';
+    std::cout << "   singularValues: " << '\n' << this->sv_right << '\n';
 }
 
-// TODO implement
 void RobotArmSVD::DEBUGprintProperties()
 {
     std::cout << "##########################################" << '\n';

@@ -1,5 +1,10 @@
 import("robot_arm_svd")
 loadComponent("test","RobotArmSVD")
 setActivity("test",1,10,ORO_SCHED_OTHER)
+test.path_to_urdf = "/home/david/repos/cogimon-gazebo-models/iit-cogimon/model.urdf"
+test.base_left_arm = "Waist"
+test.ee_left_arm = "LWrMot3"
+test.base_right_arm = "Waist"
+test.ee_right_arm = "LWrMot3"
 test.configure
 test.start
