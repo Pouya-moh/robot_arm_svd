@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+# Build Folder
+build/
+
+# Stuff
+CMakeLists.txt.user
+.tb_history
+orocos.log
+

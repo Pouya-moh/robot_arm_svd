@@ -1,0 +1,5 @@
+import("robot_arm_svd")
+loadComponent("test","RobotArmSVD")
+setActivity("test",1,10,ORO_SCHED_OTHER)
+test.configure
+test.start
