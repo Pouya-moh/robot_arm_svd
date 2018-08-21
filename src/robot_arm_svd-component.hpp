@@ -33,17 +33,16 @@ private:
                 ee_left_arm,
                 base_right_arm,
                 ee_right_arm;
+    bool use_torso;
 
     // some ports to get current joint states
-    // TODO 3 or 1 input port?
-    //RTT::InputPort<rstrt::robot::JointState> torso_state;
-    //RTT::InputPort<rstrt::robot::JointState> left_arm_state;
-    //RTT::InputPort<rstrt::robot::JointState> right_arm_state;
-    // OR
-    //RTT::InputPort<rstrt::robot::JointState> joint_state;
+    RTT::InputPort<rstrt::robot::JointState> torso_state_port;
+    RTT::InputPort<rstrt::robot::JointState> left_arm_state_port;
+    RTT::InputPort<rstrt::robot::JointState> right_arm_state_port;
 
     // test with 2 jointstates
-    rstrt::robot::JointState state_left_arm,
+    rstrt::robot::JointState state_torso,
+                             state_left_arm,
                              state_right_arm;
 
     bool loadModel(); // loads urdf specified by 'path_to_urdf'

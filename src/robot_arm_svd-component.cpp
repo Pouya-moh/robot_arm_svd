@@ -23,6 +23,19 @@ RobotArmSVD::RobotArmSVD(std::string const& name) : TaskContext(name)
     this->ee_right_arm = "NO VALUE!";
     this->addProperty("ee_right_arm", ee_right_arm).doc("End effector of right arm.");
 
+    this->use_torso = false;
+    this->addProperty("use_torso", use_torso).doc("Whether the torso is part of the arm chains or not. (Optional)");
+
+    // ports
+    left_arm_state_port.doc("Input port for left arm state.");
+    this->addPort("left_arm_state_in", left_arm_state_port);
+
+    right_arm_state_port.doc("Input port for right arm state.");
+    this->addPort("right_arm_state_in", right_arm_state_port);
+
+    torso_state_port.doc("Input port for torso state. (Optional)");
+    this->addPort("torso_state_in", torso_state_port);
+
     RTT::log(RTT::Info) << "(RobotArmSVD) Constructed!" << RTT::endlog();
 }
 
@@ -57,19 +70,57 @@ bool RobotArmSVD::startHook()
 
 void RobotArmSVD::updateHook()
 {
-    this->q_left.data = state_left_arm.angles.cast<double>();
-    jnt_to_jac_solver_left->JntToJac(q_left, j_left);
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd_left(this->j_left.data.block(0, 0, 3, this->chain_left_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
-    this->u_left  = svd_left.matrixU().cast<double>();
-    this->v_left  = svd_left.matrixV().cast<double>();
-    this->sv_left = svd_left.singularValues().cast<double>();
+    if (this->use_torso && this->torso_state_port.read(state_torso) == RTT::NoData)
+    {
+        RTT::log(RTT::Info) << "(RobotArmSVD) No data on torso port!" << RTT::endlog();
+        return;
+    }
 
-    this->q_right.data = state_right_arm.angles.cast<double>();
-    jnt_to_jac_solver_right->JntToJac(q_right, j_right);
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd_right(this->j_right.data.block(0, 0, 3, this->chain_right_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
-    this->u_right  = svd_right.matrixU().cast<double>();
-    this->v_right  = svd_right.matrixV().cast<double>();
-    this->sv_right = svd_right.singularValues().cast<double>();
+    if (this->left_arm_state_port.read(state_left_arm) == RTT::NewData)
+    {
+        Eigen::VectorXd left_angles(this->chain_left_arm.getNrOfJoints());
+        if (this->use_torso)
+        {
+            left_angles << state_torso.angles.cast<double>(), state_left_arm.angles.cast<double>();
+        }
+        else
+        {
+            left_angles = state_left_arm.angles.cast<double>();
+        }
+        this->q_left.data = left_angles;
+        jnt_to_jac_solver_left->JntToJac(q_left, j_left);
+        Eigen::JacobiSVD<Eigen::MatrixXd> svd_left(this->j_left.data.block(0, 0, 3, this->chain_left_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
+        this->u_left  = svd_left.matrixU().cast<double>();
+        this->v_left  = svd_left.matrixV().cast<double>();
+        this->sv_left = svd_left.singularValues().cast<double>();
+    }
+    else
+    {
+        RTT::log(RTT::Info) << "(RobotArmSVD) No data on left arm port!" << RTT::endlog();
+    }
+
+    if (this->right_arm_state_port.read(state_right_arm) == RTT::NewData)
+    {
+        Eigen::VectorXd right_angles(this->chain_right_arm.getNrOfJoints());
+        if (this->use_torso)
+        {
+            right_angles << state_torso.angles.cast<double>(), state_right_arm.angles.cast<double>();
+        }
+        else
+        {
+            right_angles = state_right_arm.angles.cast<double>();
+        }
+        this->q_right.data = right_angles;
+        jnt_to_jac_solver_right->JntToJac(q_right, j_right);
+        Eigen::JacobiSVD<Eigen::MatrixXd> svd_right(this->j_right.data.block(0, 0, 3, this->chain_right_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
+        this->u_right  = svd_right.matrixU().cast<double>();
+        this->v_right  = svd_right.matrixV().cast<double>();
+        this->sv_right = svd_right.singularValues().cast<double>();
+    }
+    else
+    {
+        RTT::log(RTT::Info) << "(RobotArmSVD) No data on right arm port!" << RTT::endlog();
+    }
 
     DEBUGprintSVD();
     //std::cout << "RobotArmSVD executes updateHook !" <<std::endl;
@@ -113,9 +164,7 @@ bool RobotArmSVD::loadModel()
         return false;
     }
 
-    //this->state_left_arm = rstrt::robot::JointState(this->chain_left_arm.getNrOfJoints());
-    //this->state_right_arm = rstrt::robot::JointState(this->chain_right_arm.getNrOfJoints());
-    DEBUGsetupFakeStates();
+    //DEBUGsetupFakeStates();
 
     this->q_left  = KDL::JntArray(this->chain_left_arm.getNrOfJoints());
     this->q_right = KDL::JntArray(this->chain_right_arm.getNrOfJoints());
@@ -162,15 +211,16 @@ void RobotArmSVD::DEBUGprintSVDRight()
 void RobotArmSVD::DEBUGprintProperties()
 {
     std::cout << "##########################################" << '\n';
-    std::cout << "  Path:       " << path_to_urdf << '\n';
-    std::cout << "  Base Left:  " << base_left_arm << '\n';
-    std::cout << "  EE Left:    " << ee_left_arm << '\n';
-    std::cout << "  Base Right: " << base_right_arm << '\n';
-    std::cout << "  EE Right:   " << ee_right_arm << '\n';
+    std::cout << "  Path:         " << path_to_urdf << '\n';
+    std::cout << "  Base Left:    " << base_left_arm << '\n';
+    std::cout << "  EE Left:      " << ee_left_arm << '\n';
+    std::cout << "  Base Right:   " << base_right_arm << '\n';
+    std::cout << "  EE Right:     " << ee_right_arm << '\n';
+    std::cout << "  Using torso?: " << use_torso << '\n';
     std::cout << "##########################################" << std::endl;
 }
 
-// TODO implement
+// currently not supported
 void RobotArmSVD::DEBUGsetupFakeStates()
 {
     this->state_left_arm = rstrt::robot::JointState(9);
