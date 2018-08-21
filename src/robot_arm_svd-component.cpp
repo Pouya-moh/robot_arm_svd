@@ -57,12 +57,16 @@ bool RobotArmSVD::startHook()
 
 void RobotArmSVD::updateHook()
 {
+    this->q_left.data = state_left_arm.angles.cast<double>();
+    jnt_to_jac_solver_left->JntToJac(q_left, j_left);
     Eigen::JacobiSVD<Eigen::MatrixXd> svd_left(this->j_left.data.block(0, 0, 3, this->chain_left_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
     this->u_left  = svd_left.matrixU().cast<double>();
     this->v_left  = svd_left.matrixV().cast<double>();
     this->sv_left = svd_left.singularValues().cast<double>();
 
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd_right(this->j_left.data.block(0, 0, 3, this->chain_right_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
+    this->q_right.data = state_right_arm.angles.cast<double>();
+    jnt_to_jac_solver_right->JntToJac(q_right, j_right);
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd_right(this->j_right.data.block(0, 0, 3, this->chain_right_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
     this->u_right  = svd_right.matrixU().cast<double>();
     this->v_right  = svd_right.matrixV().cast<double>();
     this->sv_right = svd_right.singularValues().cast<double>();
@@ -109,6 +113,10 @@ bool RobotArmSVD::loadModel()
         return false;
     }
 
+    //this->state_left_arm = rstrt::robot::JointState(this->chain_left_arm.getNrOfJoints());
+    //this->state_right_arm = rstrt::robot::JointState(this->chain_right_arm.getNrOfJoints());
+    DEBUGsetupFakeStates();
+
     this->q_left  = KDL::JntArray(this->chain_left_arm.getNrOfJoints());
     this->q_right = KDL::JntArray(this->chain_right_arm.getNrOfJoints());
     this->j_left  = KDL::Jacobian(this->chain_left_arm.getNrOfJoints());
@@ -131,22 +139,24 @@ void RobotArmSVD::DEBUGprintSVD()
     DEBUGprintSVDRight();
 }
 
-// TODO implement
 void RobotArmSVD::DEBUGprintSVDLeft()
 {
     std::cout << "  Left SVD:" << std::endl;
     std::cout << "   u: " << '\n' << this->u_left << '\n';
     std::cout << "   v: " << '\n' << this->v_left << '\n';
     std::cout << "   singularValues: " << '\n' << this->sv_left << '\n';
+    std::cout << "   j: " << '\n' << this->j_left.data << '\n';
+    std::cout << "   q: " << '\n' << this->q_left.data << '\n';
 }
 
-// TODO implement
 void RobotArmSVD::DEBUGprintSVDRight()
 {
     std::cout << "  Right SVD:" <<std::endl;
     std::cout << "   u: " << '\n' << this->u_right << '\n';
     std::cout << "   v: " << '\n' << this->v_right << '\n';
     std::cout << "   singularValues: " << '\n' << this->sv_right << '\n';
+    std::cout << "   j: " << '\n' << this->j_right.data << '\n';
+    std::cout << "   q: " << '\n' << this->q_right.data << '\n';
 }
 
 void RobotArmSVD::DEBUGprintProperties()
@@ -163,7 +173,15 @@ void RobotArmSVD::DEBUGprintProperties()
 // TODO implement
 void RobotArmSVD::DEBUGsetupFakeStates()
 {
+    this->state_left_arm = rstrt::robot::JointState(9);
+    Eigen::VectorXf a(9);
+    a << 0.0, 1.0, 0.3, 0.1, 0.3, -0.2, -0.4, 0.5, -0.1;
+    this->state_left_arm.angles = a;
 
+    this->state_right_arm = rstrt::robot::JointState(9);
+    Eigen::VectorXf b(9);
+    b << 0.7, 0.0, -0.2, -0.4, 0.6, 0.4, -0.1, 1.5, -0.2;
+    this->state_right_arm.angles = b;
 }
 
 /*

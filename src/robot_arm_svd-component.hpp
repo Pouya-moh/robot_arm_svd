@@ -15,6 +15,7 @@
 #include <kdl/frames.hpp>
 #include <kdl/chainfksolverpos_recursive.hpp>
 #include <kdl/chainjnttojacsolver.hpp>
+#include <rst-rt/robot/JointState.hpp>
 
 class RobotArmSVD : public RTT::TaskContext
 {
@@ -40,6 +41,10 @@ private:
     //RTT::InputPort<rstrt::robot::JointState> right_arm_state;
     // OR
     //RTT::InputPort<rstrt::robot::JointState> joint_state;
+
+    // test with 2 jointstates
+    rstrt::robot::JointState state_left_arm,
+                             state_right_arm;
 
     bool loadModel(); // loads urdf specified by 'path_to_urdf'
     // 'global' vars
