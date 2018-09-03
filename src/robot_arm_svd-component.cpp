@@ -27,6 +27,9 @@ RobotArmSVD::RobotArmSVD(std::string const& name) : TaskContext(name)
     this->addProperty("use_torso", use_torso).doc("Whether the torso is part of the arm chains or not. (Optional)");
 
     // ports
+    this->walk_dir_port.setDataSample(walk_dir_data);
+    this->addPort("walk_dir_out_port",walk_dir_port);
+
     left_arm_state_port.doc("Input port for left arm state.");
     this->addPort("left_arm_state_in", left_arm_state_port);
 
@@ -37,6 +40,7 @@ RobotArmSVD::RobotArmSVD(std::string const& name) : TaskContext(name)
     this->addPort("torso_state_in", torso_state_port);
 
     RTT::log(RTT::Info) << "(RobotArmSVD) Constructed!" << RTT::endlog();
+    this->addOperation("test",&RobotArmSVD::DEBUGprintSVD,this,RTT::ClientThread);
 }
 
 bool RobotArmSVD::configureHook()
@@ -89,7 +93,7 @@ void RobotArmSVD::updateHook()
         }
         this->q_left.data = left_angles;
         jnt_to_jac_solver_left->JntToJac(q_left, j_left);
-        Eigen::JacobiSVD<Eigen::MatrixXd> svd_left(this->j_left.data.block(0, 0, 3, this->chain_left_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
+        Eigen::JacobiSVD<Eigen::MatrixXd> svd_left(this->j_left.data.block(0, 0, 2, this->chain_left_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
         this->u_left  = svd_left.matrixU().cast<double>();
         this->v_left  = svd_left.matrixV().cast<double>();
         this->sv_left = svd_left.singularValues().cast<double>();
@@ -112,7 +116,7 @@ void RobotArmSVD::updateHook()
         }
         this->q_right.data = right_angles;
         jnt_to_jac_solver_right->JntToJac(q_right, j_right);
-        Eigen::JacobiSVD<Eigen::MatrixXd> svd_right(this->j_right.data.block(0, 0, 3, this->chain_right_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
+        Eigen::JacobiSVD<Eigen::MatrixXd> svd_right(this->j_right.data.block(0, 0, 2, this->chain_right_arm.getNrOfJoints()), Eigen::ComputeThinU | Eigen::ComputeThinV);
         this->u_right  = svd_right.matrixU().cast<double>();
         this->v_right  = svd_right.matrixV().cast<double>();
         this->sv_right = svd_right.singularValues().cast<double>();
@@ -121,8 +125,10 @@ void RobotArmSVD::updateHook()
     {
         RTT::log(RTT::Info) << "(RobotArmSVD) No data on right arm port!" << RTT::endlog();
     }
+    walk_dir_data = (u_left.block<2,1>(0,1)/sv_left(1)+u_right.block<2,1>(0,1)/sv_right(1)).cast<float>();
+    walk_dir_port.write(walk_dir_data);
 
-    DEBUGprintSVD();
+//    DEBUGprintSVD();
     //std::cout << "RobotArmSVD executes updateHook !" <<std::endl;
     //RTT::log(RTT::Error) << "RobotArmSVD executes updateHook !" << RTT::endlog();
 }
@@ -178,7 +184,7 @@ bool RobotArmSVD::loadModel()
     this->jnt_to_jac_solver_right = std::unique_ptr<KDL::ChainJntToJacSolver>(new KDL::ChainJntToJacSolver(this->chain_right_arm));
 
     model_loaded = true;
-return true;
+    return true;
 }
 
 void RobotArmSVD::DEBUGprintSVD()
@@ -186,6 +192,7 @@ void RobotArmSVD::DEBUGprintSVD()
     std::cout << "Printing SVDs" << std::endl;
     DEBUGprintSVDLeft();
     DEBUGprintSVDRight();
+    std::cout<<"Walk direction:\n"<<-1*walk_dir_data(1)<<" , "<<walk_dir_data(0)<<std::endl;
 }
 
 void RobotArmSVD::DEBUGprintSVDLeft()

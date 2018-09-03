@@ -17,6 +17,7 @@
 #include <kdl/chainjnttojacsolver.hpp>
 #include <rst-rt/robot/JointState.hpp>
 
+
 // TODO remove DEBUG functions
 class RobotArmSVD : public RTT::TaskContext
 {
@@ -40,6 +41,9 @@ private:
     RTT::InputPort<rstrt::robot::JointState> torso_state_port;
     RTT::InputPort<rstrt::robot::JointState> left_arm_state_port;
     RTT::InputPort<rstrt::robot::JointState> right_arm_state_port;
+
+    RTT::OutputPort<Eigen::Vector2f> walk_dir_port;
+    Eigen::Vector2f walk_dir_data;
 
     // test with 2 jointstates
     rstrt::robot::JointState state_torso,

@@ -51,6 +51,7 @@ endif()
 # and installs in the directory lib/orocos/helloworld/
 #
 orocos_component(robot_arm_svd robot_arm_svd-component.hpp robot_arm_svd-component.cpp) # ...you may add multiple source files
+# orocos_component(robot_arm_svd robot_arm_svd-component.hpp robot_arm_svd-component.cpp ManipulabilityVisulizer.cpp  ManipulabilityVisulizer.hpp) # ...you may add multiple source files
 #
 # You may add multiple orocos_component statements.
 target_link_libraries(${CMAKE_PROJECT_NAME}

@@ -1,0 +1,74 @@
+import("eigen_typekit")
+import("kdl_typekit")
+import("rst-rt_typekit")
+import("rtt_gazebo_embedded")
+require("os")
+
+loadComponent("gazebo","RTTGazeboEmbedded")
+
+setActivity("gazebo",0,10,ORO_SCHED_OTHER)
+
+gazebo.add_plugin("/home/pmo/Tools/cosima-mk2/install/cogimon-advanced-nightly/lib/orocos/gnulinux/RTTGazeboClockPlugin/libRTTGazeboClockPlugin.so")
+
+# var string path_world="/home/pmo/Tools/cosima-mk2/install/cogimon-advanced-nightly/share/gazebo/models/cogimon/iit-cogimon/empty.world"
+# gazebo.world_path = path_world
+
+gazebo.configure()
+
+gazebo.start()
+
+gazebo.toggleDynamicsSimulation(false)
+
+gazebo.spawn_model("cogimon", "model://iit-cogimon", 20)
+
+import("rtt-gazebo-robot-sim")
+
+loadComponent("cogimon","cogimon::robotSim")
+setActivity("cogimon",0,11,ORO_SCHED_OTHER)
+
+var string urdf_path = os.getenv("GAZEBO_MODEL_PATH") + "/iit-cogimon/model.urdf"
+var string srdf_path = os.getenv("GAZEBO_MODEL_PATH") + "/iit-cogimon/cogimon.srdf"
+
+cogimon.loadURDFAndSRDF(urdf_path, srdf_path)
+cogimon.getModel("cogimon")
+cogimon.configure()
+
+var array left_L = array(0.05, -0.2, 0.0, 0.5, -0.2, -0.05)
+var array right_L = array(-0.05, -0.2, 0.0, 0.5, -0.2, 0.05)
+var array left_A =  array(0.55, 1.2, 0.0, -0.5, -0.2,  0.05, 0.1)
+var array right_A = array(0.55,-1.2, 0.0, -0.5, -0.2, 0.05, 0.1)
+cogimon.setInitialPosition("left_leg", left_L)
+cogimon.setInitialPosition("right_leg", right_L)
+cogimon.setInitialPosition("left_arm", left_A)
+cogimon.setInitialPosition("right_arm", right_A)
+
+
+gazebo.toggleDynamicsSimulation(true)
+
+import("/home/pmo/Repositories/other/robot_arm_svd/build/src/orocos/gnulinux/robot_arm_svd")
+loadComponent("test","RobotArmSVD")
+setActivity("test",0.01,10,ORO_SCHED_OTHER)
+
+test.path_to_urdf = urdf_path
+test.base_left_arm = "DWYTorso"
+test.ee_left_arm = "LWrMot3"
+test.base_right_arm = "DWYTorso"
+test.ee_right_arm = "RWrMot3" 
+
+var ConnPolicy cp;
+
+cp.type = BUFFER;  // Use ''BUFFER'' or ''DATA''
+cp.size = 10;      // size of the buffer
+cp.lock_policy = LOCKED; // Use  ''LOCKED'', ''LOCK_FREE'' or ''UNSYNC''
+
+## ADD THEM
+connect("cogimon.left_arm_JointFeedback", "test.left_arm_state_in",cp)
+connect("cogimon.right_arm_JointFeedback", "test.right_arm_state_in",cp)
+
+
+## optional
+#test.use_torso = true
+#connect(SOME_OUTPUT_PORT, "test.torso_state_in",cp)
+
+test.configure
+test.start
