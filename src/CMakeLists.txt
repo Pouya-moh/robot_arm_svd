@@ -15,13 +15,14 @@ IF (RST-RT_FOUND)
     link_directories(${RST-RT_LIBRARY_DIRS})
 ENDIF()
 
-find_package(orocos_kdl REQUIRED)
-if(orocos_kdl_FOUND)
-    message(STATUS "orocos_kdl found. Version: ${orocos_kdl_VERSION}")
-    include_directories(BEFORE SYSTEM ${orocos_kdl_INCLUDE_DIRS})
-    add_definitions(${orocos_kdl_CFLAGS})
-    link_directories(${orocos_kdl_LIBRARY_DIRS})
-endif()
+add_subdirectory( orocos_kinematics_dynamics )
+# find_package(orocos_kdl REQUIRED)
+# if(orocos_kdl_FOUND)
+#     message(STATUS "orocos_kdl found. Version: ${orocos_kdl_VERSION}")
+#     include_directories(BEFORE SYSTEM ${orocos_kdl_INCLUDE_DIRS})
+#     add_definitions(${orocos_kdl_CFLAGS})
+#     link_directories(${orocos_kdl_LIBRARY_DIRS})
+# endif()
 
 find_package(urdfdom REQUIRED)
 if(urdfdom_FOUND)
@@ -56,7 +57,8 @@ orocos_component(robot_arm_svd robot_arm_svd-component.hpp robot_arm_svd-compone
 # You may add multiple orocos_component statements.
 target_link_libraries(${CMAKE_PROJECT_NAME}
     ${RST-RT_LIBRARIES}
-    ${orocos_kdl_LIBRARIES}
+    # ${orocos_kdl_LIBRARIES}
+    orocos-kdl
     ${urdfdom_LIBRARIES}
     ${kdl_parser_LIBRARIES}
     ${urdf_LIBRARIES})
